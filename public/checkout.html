@@ -1,5 +1,6 @@
 <!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="icon" href="/favicon.svg"><link rel="stylesheet" href="/styles.css"><title>Checkout · {store}</title></head><body><main>
 <h1>Checkout</h1>
+<p class="note err" id="canceledNote" hidden>Payment was canceled. You have not been charged. You can try again below.</p>
 <form id="form" novalidate autocomplete="on">
 <div class="card"><h2>1. Your plan</h2><select id="planSel" aria-label="Plan"></select><div class="summary" style="margin-top:10px"><div id="planInfo" class="small"></div><div class="p" id="planPrice"></div></div></div>
 <div class="card"><h2>2. Your details</h2><label for="email">Email (for your receipt and order lookup)</label><input id="email" type="email" autocomplete="email" placeholder="you@example.com" required>
@@ -13,7 +14,10 @@
 <div class="row"><div><label for="portAccount">Account number</label><input id="portAccount" autocomplete="off" inputmode="numeric"></div>
 <div><label for="portPin">Transfer PIN</label><input id="portPin" type="password" autocomplete="off" inputmode="numeric" maxlength="10"></div></div>
 <label for="portZip">Billing ZIP on that account</label><input id="portZip" inputmode="numeric" maxlength="5" autocomplete="off"></div></div>
-<div class="card"><h2>4. Payment</h2><div class="methods" id="methods">
+<div class="card"><h2>4. Payment</h2>
+<p class="note small" id="checkoutNote"></p>
+<div id="stripePay" hidden><p class="small muted">You'll pay on Stripe's secure page (cards, Apple Pay, Google Pay and more). Card numbers never come to this site.</p></div>
+<div id="mockPay"><div class="methods" id="methods">
 <button type="button" data-m="card" class="on"><span>💳</span>Card</button><button type="button" data-m="apple_pay"><span>📱</span>Apple Pay</button><button type="button" data-m="google_pay"><span>📲</span>Google Pay</button>
 <button type="button" data-m="cashapp"><span>$</span>Cash App</button><button type="button" data-m="paypal"><span>🅿️</span>PayPal</button><button type="button" data-m="crypto"><span>₿</span>Crypto</button></div>
 <div data-pane="card"><label for="ccName">Name on card</label><input id="ccName" autocomplete="cc-name">
@@ -25,9 +29,9 @@
 <div data-pane="crypto" hidden><label for="asset">Coin</label><select id="asset"><option value="USDC">USDC</option><option value="USDT">USDT</option><option value="BTC">Bitcoin (BTC)</option></select><p class="small muted" id="cryptoAmt"></p></div>
 <div data-pane="apple_pay" hidden><p class="small muted">You'll confirm with Apple Pay on the next screen.</p></div>
 <div data-pane="google_pay" hidden><p class="small muted">You'll confirm with Google Pay on the next screen.</p></div>
-<div class="err" id="formErr" role="alert" hidden></div>
+<div class="err" id="formErr" role="alert" hidden></div></div>
 <button class="btn block" id="payBtn" style="margin-top:14px">Pay</button>
-<p class="small muted center">🔒 Test mode: nothing is charged.</p></div>
+<p class="small muted center" id="payHint">🔒 Test mode: nothing is charged.</p></div>
 </form></main>
 <div class="sheet" id="sheet"><div class="box"><h2 id="sheetTitle"></h2><div id="sheetBody"></div><div class="row" style="margin-top:14px"><button class="btn light" id="sheetCancel" type="button">Cancel</button><button class="btn" id="sheetOk" type="button">Approve</button></div></div></div>
 <script src="/common.js"></script><script src="/checkout.js"></script></body></html>

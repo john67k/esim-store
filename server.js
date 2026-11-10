@@ -1,4 +1,6 @@
-// eSIM prepaid plan store. TEST MODE while the mock supplier + mock payments are in use.
+// eSIM prepaid plan store selling Airvoice Wireless plans as an independent seller.
+// Payments: Stripe Checkout when STRIPE_SECRET_KEY is set, otherwise simulated (TEST MODE).
+// Activation: done by hand by the owner in /admin, then shown on the customer's order page.
 const express = require('express');
 const crypto = require('crypto');
 const fs = require('fs');
@@ -9,10 +11,10 @@ const store = require('./lib/store');
 const v = require('./lib/validation');
 const ids = require('./lib/ids');
 const { DEVICES } = require('./lib/devices');
-const supplier = require('./providers/supplier');
 const payments = require('./providers/payments');
 
-const TEST_MODE = supplier.testMode || payments.testMode;
+const TEST_MODE = !!payments.testMode;
+const STATUS_LABEL = { pending_payment: 'Awaiting payment', paid: 'Paid – awaiting activation', activated: 'Activated', canceled: 'Canceled' };
 const MAX_PRICE_CENTS = 100000; // $1,000 safety cap per plan
 
 // Admin password: ADMIN_PASSWORD env var (Render generates one). Locally, a random one is saved to data/admin-password.txt.
@@ -27,6 +29,27 @@ if (!ADMIN_PASSWORD) {
 const app = express();
 app.disable('x-powered-by');
 app.set('trust proxy', 1); // Render puts one proxy in front of the app
+// Stripe webhook needs the raw body to check the signature, so it is registered before express.json().
+app.post('/api/stripe/webhook', express.raw({ type: '*/*', limit: '1mb' }), (req, res) => {
+  if (!payments.verifyWebhook) return res.status(404).json({ error: 'Stripe is not enabled' });
+  let event;
+  try { event = payments.verifyWebhook(req.body, req.headers['stripe-signature']); }
+  catch (e) { console.error('stripe webhook rejected:', e.message); return res.status(400).json({ error: 'Invalid signature' }); }
+  if (event.type === 'checkout.session.completed' || event.type === 'checkout.session.async_payment_succeeded') {
+    const s = event.data.object;
+    const o = store.db.orders.find((x) => x.orderNumber === (s.metadata?.orderNumber || s.client_reference_id));
+    if (o && s.payment_status === 'paid' && o.status === 'pending_payment') {
+      if (s.amount_total != null && s.amount_total !== o.amountCents) { console.error(`order ${o.orderNumber}: amount mismatch ${s.amount_total} vs ${o.amountCents}`); }
+      else { o.status = 'paid'; o.paidAt = new Date().toISOString();
+      o.payment = { ...o.payment, ref: s.payment_intent || s.id, sessionId: s.id, amountPaidCents: s.amount_total };
+      store.save(); console.log(`order ${o.orderNumber} paid via Stripe`); }
+    }
+  } else if (event.type === 'checkout.session.expired') {
+    const s = event.data.object; const o = store.db.orders.find((x) => x.orderNumber === s.metadata?.orderNumber);
+    if (o && o.status === 'pending_payment') { o.status = 'canceled'; store.save(); }
+  }
+  res.json({ received: true });
+});
 app.use(express.json({ limit: '20kb' }));
 app.use((req, res, next) => {
   res.set({ 'X-Content-Type-Options': 'nosniff', 'X-Frame-Options': 'DENY', 'Referrer-Policy': 'same-origin',
@@ -50,12 +73,14 @@ function limited(req, bucket, max, windowMs) {
 
 // ---------- public views ----------
 const publicPlan = (p) => ({ id: p.id, name: p.name, network: p.network, example: !!p.example, fiveG: !!p.fiveG, unlimited: !!p.unlimited,
-  dataGB: p.dataGB, talk: p.talk, text: p.text, hotspotGB: p.hotspotGB, validityDays: p.validityDays, priceCents: p.priceCents, notes: p.notes || '' });
-const publicOrder = (o) => ({ orderNumber: o.orderNumber, token: o.token, status: o.status, email: o.email, createdAt: o.createdAt,
-  plan: o.plan, amountCents: o.amountCents, payment: o.payment, device: o.device, esim: o.esim, port: o.port, testMode: o.testMode });
+  dataGB: p.dataGB, talk: p.talk, text: p.text, hotspotGB: p.hotspotGB, validityDays: p.validityDays, priceCents: p.priceCents,
+  termMonths: p.termMonths || null, monthlyPriceCents: p.monthlyPriceCents || null, notes: p.notes || '' });
+const publicOrder = (o) => ({ orderNumber: o.orderNumber, token: o.token, status: o.status, statusLabel: STATUS_LABEL[o.status] || o.status, email: o.email, createdAt: o.createdAt,
+  plan: o.plan, amountCents: o.amountCents, payment: { method: o.payment?.method, brand: o.payment?.brand, last4: o.payment?.last4, cashtag: o.payment?.cashtag, email: o.payment?.email, asset: o.payment?.asset, amount: o.payment?.amount },
+  device: o.device, esim: o.status === 'activated' ? o.esim : null, activatedAt: o.activatedAt || null, port: o.port, testMode: o.testMode });
 
-app.get('/api/config', (req, res) => res.json({ storeName: config.STORE_NAME, disclaimer: config.DISCLAIMER, supportEmail: config.SUPPORT_EMAIL,
-  testMode: TEST_MODE, paymentMethods: payments.METHODS, cryptoRates: payments.RATES }));
+app.get('/api/config', (req, res) => res.json({ storeName: config.STORE_NAME, disclaimer: config.DISCLAIMER, activationNote: config.ACTIVATION_NOTE, supportEmail: config.SUPPORT_EMAIL,
+  testMode: TEST_MODE, paymentMode: payments.mode, paymentMethods: payments.METHODS, cryptoRates: payments.RATES }));
 app.get('/api/health', (req, res) => res.json({ ok: true }));
 app.get('/api/plans', (req, res) => res.json(store.db.plans.filter((p) => p.active).map(publicPlan)));
 app.get('/api/plans/:id', (req, res) => {
@@ -75,6 +100,7 @@ function validatePort(port) {
   const pin = String(port.pin ?? '').trim();
   if (!/^\d{4,10}$/.test(pin)) return ['Enter the transfer PIN from your current carrier (4–10 digits).'];
   if (!/^\d{5}$/.test(String(port.zip ?? '').trim())) return ['Enter the 5-digit billing ZIP on your current account.'];
+  // The PIN is checked here so we know the customer has it, then dropped. It is never saved, logged, or shown again.
   return [null, { phone, carrier: clean(port.carrier, 60), account, pin, zip: String(port.zip).trim() }];
 }
 
@@ -92,26 +118,28 @@ app.post('/api/orders', async (req, res) => {
   if (portErr) return bad(res, portErr);
 
   const orderNumber = ids.orderNumber();
+  // Only the last 4 of the account number are kept. The transfer PIN is checked then dropped. It is never saved.
+  const portOut = port ? { phone: port.phone, carrier: port.carrier, accountLast4: port.account.slice(-4), zip: port.zip, status: 'We will contact you for your transfer PIN when we activate' } : null;
+  const order = { orderNumber, token: ids.token(), status: 'pending_payment', email, createdAt: new Date().toISOString(), testMode: TEST_MODE,
+    plan: publicPlan(plan), amountCents: plan.priceCents, costCents: plan.costCents, payment: {},
+    device: device ? { brand: device.brand, model: device.model } : null, esim: null, port: portOut };
+
+  if (payments.mode === 'redirect') {
+    let session;
+    const baseUrl = (process.env.PUBLIC_URL || `${req.protocol}://${req.get('host')}`).replace(/\/$/, '');
+    try { session = await payments.createCheckout({ order: { ...order, storeName: config.STORE_NAME }, plan, baseUrl }); }
+    catch (e) { console.error('stripe checkout error', orderNumber, e.message); return bad(res, 'Payment is not available right now. Please try again soon.', 503); }
+    order.payment = { method: 'stripe_checkout', sessionId: session.sessionId };
+    store.db.orders.push(order); store.save();
+    console.log(`order ${orderNumber} plan=${plan.id} checkout session created`);
+    return res.status(201).json({ ...publicOrder(order), checkoutUrl: session.url });
+  }
+
   let charge;
   try { charge = await payments.charge({ amountCents: plan.priceCents, method: b.payment?.method, details: b.payment?.details || {}, orderNumber, email }); }
   catch (e) { console.error('payment error', orderNumber, e.message); return bad(res, 'Payment is not available right now.', 503); }
   if (!charge.ok) return bad(res, charge.userError || 'Payment failed.', charge.declined ? 402 : 400);
-
-  let esim;
-  try { esim = await supplier.orderEsim({ plan, orderNumber, email }); }
-  catch (e) { console.error('supplier error', orderNumber, e.message); return bad(res, 'We could not issue your eSIM. You have not been charged (test mode).', 502); }
-
-  let portOut = null;
-  if (port) {
-    let portRes;
-    try { portRes = await supplier.submitPortIn({ orderNumber, port }); } catch (e) { portRes = { status: 'needs attention' }; console.error('port-in error', orderNumber); }
-    // Store only what's needed to follow up. The transfer PIN is never saved, logged, or shown again.
-    portOut = { phone: port.phone, carrier: port.carrier, accountLast4: port.account.slice(-4), zip: port.zip, pinProvided: true, status: portRes.status, portRef: portRes.portRef || null };
-  }
-
-  const order = { orderNumber, token: ids.token(), status: 'active', email, createdAt: new Date().toISOString(), testMode: TEST_MODE,
-    plan: publicPlan(plan), amountCents: plan.priceCents, costCents: plan.costCents, payment: { ref: charge.ref, ...charge.summary },
-    device: device ? { brand: device.brand, model: device.model } : null, esim, port: portOut };
+  Object.assign(order, { status: 'paid', paidAt: new Date().toISOString(), payment: { ref: charge.ref, ...charge.summary } });
   store.db.orders.push(order); store.save();
   console.log(`order ${orderNumber} plan=${plan.id} method=${charge.summary.method}${portOut ? ' port-in' : ''}`);
   res.status(201).json(publicOrder(order));
@@ -132,12 +160,9 @@ app.post('/api/orders/lookup', (req, res) => {
 app.get('/api/orders/:num/qr.svg', async (req, res) => {
   const o = findOrder(req.params.num);
   if (!o || !eqSafe(o.token, req.query.token || '')) return bad(res, 'Order not found', 404);
-  let qr = await QRCode.toString(o.esim.lpa, { type: 'svg', margin: 1, errorCorrectionLevel: 'H' });
-  qr = qr.replace(/<\?xml[^>]*>/, '').replace('<svg ', '<svg x="20" y="20" width="260" height="260" ');
-  const sample = o.esim.sample ? `<g transform="rotate(-30 150 150)"><rect x="20" y="118" width="260" height="64" fill="#fff" opacity=".85"/>
-    <text x="150" y="168" font-family="Arial,sans-serif" font-size="52" font-weight="900" text-anchor="middle" fill="#d11">SAMPLE</text></g>
-    <text x="150" y="312" font-family="Arial,sans-serif" font-size="16" font-weight="700" text-anchor="middle" fill="#d11">SAMPLE · WILL NOT ACTIVATE</text>` : '';
-  res.type('image/svg+xml').send(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 ${o.esim.sample ? 330 : 300}"><rect width="100%" height="100%" fill="#fff"/>${qr}${sample}</svg>`);
+  if (o.status !== 'activated' || !o.esim?.lpa) return bad(res, 'Your eSIM is not ready yet', 404);
+  const qr = await QRCode.toString(o.esim.lpa, { type: 'svg', margin: 2, errorCorrectionLevel: 'M' });
+  res.type('image/svg+xml').send(qr);
 });
 
 // ---------- admin ----------
@@ -158,9 +183,31 @@ app.post('/api/admin/login', (req, res) => {
 app.post('/api/admin/logout', (req, res) => { sessions.delete(cookieToken(req)); res.set('Set-Cookie', 'admin=; Path=/; Max-Age=0').json({ ok: true }); });
 app.get('/api/admin/me', (req, res) => { const t = cookieToken(req), exp = t && sessions.get(t); res.json({ loggedIn: !!exp && exp > Date.now() }); });
 app.get('/api/admin/orders', requireAdmin, (req, res) => {
-  const orders = [...store.db.orders].reverse().map((o) => ({ ...publicOrder(o), token: undefined, costCents: o.costCents }));
-  const revenue = store.db.orders.reduce((a, o) => a + o.amountCents, 0), cost = store.db.orders.reduce((a, o) => a + (o.costCents || 0), 0);
-  res.json({ orders, totals: { count: orders.length, revenueCents: revenue, profitCents: revenue - cost } });
+  const orders = [...store.db.orders].reverse().map((o) => ({ ...publicOrder(o), token: undefined, esim: o.esim, costCents: o.costCents }));
+  const paid = store.db.orders.filter((o) => o.status === 'paid' || o.status === 'activated');
+  const revenue = paid.reduce((a, o) => a + o.amountCents, 0), cost = paid.reduce((a, o) => a + (o.costCents || 0), 0);
+  res.json({ orders, totals: { count: paid.length, awaiting: store.db.orders.filter((o) => o.status === 'paid').length, revenueCents: revenue, profitCents: revenue - cost } });
+});
+
+// Manual activation: the owner activates the line in the carrier/dealer portal, then pastes the eSIM details here.
+app.post('/api/admin/orders/:num/activate', requireAdmin, (req, res) => {
+  const o = findOrder(req.params.num); if (!o) return bad(res, 'Order not found', 404);
+  if (o.status !== 'paid' && o.status !== 'activated') return bad(res, 'Only paid orders can be activated.', 409);
+  const b = req.body || {};
+  let smdp = clean(b.smdpAddress, 120), code = clean(b.activationCode, 200);
+  const lpaIn = /^LPA:1\$([^$]+)\$([^$]+)/i.exec(code) || /^LPA:1\$([^$]+)\$([^$]+)/i.exec(clean(b.lpa, 300));
+  if (lpaIn) { smdp = lpaIn[1]; code = lpaIn[2]; }
+  if (!/^[A-Za-z0-9.-]+\.[A-Za-z]{2,}$/.test(smdp)) return bad(res, 'Enter the SM-DP+ address, like sm-dp.example.com.');
+  if (!/^[A-Za-z0-9-]{4,100}$/.test(code)) return bad(res, 'Enter the activation code (letters, numbers and dashes).');
+  const iccid = v.digits(b.iccid);
+  if (!/^\d{18,22}$/.test(iccid)) return bad(res, 'ICCID must be 18–22 digits.');
+  let phone = null;
+  if (b.phoneNumber) { phone = v.normPhone(b.phoneNumber); if (!phone) return bad(res, 'Enter a valid 10-digit US phone number.'); }
+  o.esim = { smdpAddress: smdp, activationCode: code, lpa: `LPA:1$${smdp}$${code}`, iccid, phoneNumber: phone };
+  o.status = 'activated'; o.activatedAt = new Date().toISOString();
+  if (o.port) o.port.status = phone && phone === o.port.phone ? 'Transferred' : o.port.status;
+  store.save(); console.log(`order ${o.orderNumber} activated`);
+  res.json({ ...publicOrder(o), token: undefined });
 });
 app.get('/api/admin/plans', requireAdmin, (req, res) => res.json(store.db.plans));
 
@@ -185,7 +232,7 @@ function planFromBody(b, existing = {}) {
     active: b.active !== undefined ? !!b.active : existing.active ?? true,
     example: b.example !== undefined ? !!b.example : existing.example ?? false,
     talk: clean(b.talk ?? existing.talk ?? 'Unlimited', 40) || 'Unlimited', text: clean(b.text ?? existing.text ?? 'Unlimited', 40) || 'Unlimited',
-    supplierSku: clean(b.supplierSku ?? existing.supplierSku ?? '', 60), notes: clean(b.notes ?? existing.notes ?? '', 300) });
+    supplierSku: clean(b.supplierSku ?? existing.supplierSku ?? '', 60), notes: clean(b.notes ?? existing.notes ?? '', 500) });
   return [null, p];
 }
 app.post('/api/admin/plans', requireAdmin, (req, res) => {

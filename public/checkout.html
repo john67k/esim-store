@@ -1,0 +1,33 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="icon" href="/favicon.svg"><link rel="stylesheet" href="/styles.css"><title>Checkout · {store}</title></head><body><main>
+<h1>Checkout</h1>
+<form id="form" novalidate autocomplete="on">
+<div class="card"><h2>1. Your plan</h2><select id="planSel" aria-label="Plan"></select><div class="summary" style="margin-top:10px"><div id="planInfo" class="small"></div><div class="p" id="planPrice"></div></div></div>
+<div class="card"><h2>2. Your details</h2><label for="email">Email (for your receipt and order lookup)</label><input id="email" type="email" autocomplete="email" placeholder="you@example.com" required>
+<details style="margin-top:12px" open><summary>Check my phone (recommended)</summary><div id="compat"></div></details>
+<label class="check" style="margin-top:12px"><input type="checkbox" id="unlocked"> My phone supports eSIM and is carrier-unlocked.</label></div>
+<div class="card"><h2>3. Keep my number <span class="muted small" style="font-weight:500">(optional)</span></h2>
+<label class="check"><input type="checkbox" id="portOn"> Transfer my current phone number to this plan</label>
+<div id="portFields" hidden><p class="note small">Get your account number and transfer PIN from your current carrier's app or website (search "transfer PIN" or "port out PIN"). Don't cancel your old service before the transfer finishes.</p>
+<label for="portPhone">Phone number to keep</label><input id="portPhone" type="tel" inputmode="tel" autocomplete="tel-national" placeholder="(555) 123-4567">
+<label for="portCarrier">Current carrier</label><input id="portCarrier" list="carrierList" placeholder="e.g. T-Mobile"><datalist id="carrierList"><option>AT&amp;T</option><option>Verizon</option><option>T-Mobile</option><option>Boost Mobile</option><option>Airvoice Wireless</option><option>Cricket Wireless</option><option>Metro by T-Mobile</option><option>Mint Mobile</option><option>Visible</option><option>Straight Talk</option></datalist>
+<div class="row"><div><label for="portAccount">Account number</label><input id="portAccount" autocomplete="off" inputmode="numeric"></div>
+<div><label for="portPin">Transfer PIN</label><input id="portPin" type="password" autocomplete="off" inputmode="numeric" maxlength="10"></div></div>
+<label for="portZip">Billing ZIP on that account</label><input id="portZip" inputmode="numeric" maxlength="5" autocomplete="off"></div></div>
+<div class="card"><h2>4. Payment</h2><div class="methods" id="methods">
+<button type="button" data-m="card" class="on"><span>💳</span>Card</button><button type="button" data-m="apple_pay"><span>📱</span>Apple Pay</button><button type="button" data-m="google_pay"><span>📲</span>Google Pay</button>
+<button type="button" data-m="cashapp"><span>$</span>Cash App</button><button type="button" data-m="paypal"><span>🅿️</span>PayPal</button><button type="button" data-m="crypto"><span>₿</span>Crypto</button></div>
+<div data-pane="card"><label for="ccName">Name on card</label><input id="ccName" autocomplete="cc-name">
+<label for="ccNum">Card number</label><input id="ccNum" inputmode="numeric" autocomplete="cc-number" placeholder="4242 4242 4242 4242"><div class="err" id="ccNumErr" hidden></div>
+<div class="row"><div><label for="ccExp">Expiry</label><input id="ccExp" inputmode="numeric" autocomplete="cc-exp" placeholder="MM/YY"></div><div><label for="ccCvc">CVC</label><input id="ccCvc" inputmode="numeric" autocomplete="cc-csc" maxlength="4"></div><div><label for="ccZip">ZIP</label><input id="ccZip" inputmode="numeric" autocomplete="postal-code" maxlength="5"></div></div>
+<p class="small muted" id="testCards">Test card: 4242 4242 4242 4242, any future date, any CVC. 4000 0000 0000 0002 is declined.</p></div>
+<div data-pane="cashapp" hidden><label for="cashtag">Your $Cashtag</label><input id="cashtag" placeholder="$yourname"></div>
+<div data-pane="paypal" hidden><label for="ppEmail">PayPal email</label><input id="ppEmail" type="email" placeholder="you@example.com"></div>
+<div data-pane="crypto" hidden><label for="asset">Coin</label><select id="asset"><option value="USDC">USDC</option><option value="USDT">USDT</option><option value="BTC">Bitcoin (BTC)</option></select><p class="small muted" id="cryptoAmt"></p></div>
+<div data-pane="apple_pay" hidden><p class="small muted">You'll confirm with Apple Pay on the next screen.</p></div>
+<div data-pane="google_pay" hidden><p class="small muted">You'll confirm with Google Pay on the next screen.</p></div>
+<div class="err" id="formErr" role="alert" hidden></div>
+<button class="btn block" id="payBtn" style="margin-top:14px">Pay</button>
+<p class="small muted center">🔒 Test mode: nothing is charged.</p></div>
+</form></main>
+<div class="sheet" id="sheet"><div class="box"><h2 id="sheetTitle"></h2><div id="sheetBody"></div><div class="row" style="margin-top:14px"><button class="btn light" id="sheetCancel" type="button">Cancel</button><button class="btn" id="sheetOk" type="button">Approve</button></div></div></div>
+<script src="/common.js"></script><script src="/checkout.js"></script></body></html>

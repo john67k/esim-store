@@ -1,4 +1,12 @@
 // Renders an order (used after checkout and from "My orders").
+function orderProgress(status) {
+  const steps = ['Paid', 'Activating', 'Active'];
+  const on = status === 'activated' ? 2 : status === 'paid' ? 1 : status === 'pending_payment' ? -1 : 0;
+  return `<ol class="progress" aria-label="Order status">${steps.map((label, i) => {
+    const cls = on < 0 ? '' : i < on ? 'done' : i === on ? (status === 'activated' ? 'done' : 'on') : '';
+    return `<li class="${cls}">${label}</li>`;
+  }).join('')}</ol>`;
+}
 function renderOrder(o, root) {
   const pay = o.payment.last4 ? `${o.payment.brand} •••• ${o.payment.last4}` : { apple_pay: 'Apple Pay', google_pay: 'Google Pay', cashapp: 'Cash App ' + (o.payment.cashtag || ''), paypal: 'PayPal', crypto: `${o.payment.amount} ${o.payment.asset}`, stripe_checkout: 'Card (Stripe)' }[o.payment.method] || o.payment.method || 'Payment';
   const copy = (id, val) => `<div class="code"><span id="${id}">${esc(val)}</span><button type="button" class="btn sm light" data-copy="${id}">Copy</button></div>`;
@@ -10,7 +18,8 @@ function renderOrder(o, root) {
   root.innerHTML = `
   <div class="card center"><span class="${badge}" id="statusBadge">${esc(o.statusLabel || o.status)}${o.testMode && o.status !== 'activated' ? ' (test)' : ''}</span>
     <h1 style="margin-top:10px">${ready ? 'Your eSIM is ready' : waiting ? (o.status === 'paid' ? 'We have your order' : 'Waiting for payment') : esc(o.statusLabel || o.status)}</h1>
-    <p class="muted">Order <b id="orderNum">${esc(o.orderNumber)}</b> · ${esc(o.email)}</p></div>
+    <p class="muted">Order <b id="orderNum">${esc(o.orderNumber)}</b> · ${esc(o.email)}</p>
+    ${orderProgress(o.status)}</div>
   <div class="card"><div class="summary"><div><b>${esc(o.plan.name)}</b><div class="small muted">${esc(dataText(o.plan))} · ${esc(termText(o.plan))} · ${esc(o.plan.network)} plan</div></div><div class="p">${money(o.amountCents)}</div></div>
     <p class="small muted" style="margin:.5em 0 0">${o.status === 'pending_payment' ? 'Payment pending' : 'Paid'} with ${esc(pay)}${o.device ? ` · Phone: ${esc(o.device.model)}` : ''}</p></div>
   ${o.status === 'paid' ? `<div class="note" id="awaitingNote"><b>Paid – awaiting activation.</b> ${esc(CONFIG.activationNote)} We'll update this page when your eSIM is ready. Bookmark it or find it later under My orders.</div>` : ''}

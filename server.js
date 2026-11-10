@@ -57,6 +57,7 @@ app.use((req, res, next) => {
   if (req.path.startsWith('/api/')) res.set('Cache-Control', 'no-store');
   next();
 });
+app.use((req, res, next) => { if (req.path === '/sw.js') res.set({ 'Cache-Control': 'no-cache', 'Service-Worker-Allowed': '/' }); next(); });
 app.use(express.static(path.join(__dirname, 'public'), { extensions: ['html'] }));
 
 const bad = (res, msg, code = 400) => res.status(code).json({ error: msg });

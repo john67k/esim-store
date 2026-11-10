@@ -112,6 +112,14 @@ const app = require('../server');
   r = await call('POST', `/api/admin/orders/${o1.orderNumber}/activate`, ACT); ok(r.status === 401, 'activation requires admin login');
 
   for (const p of ['/', '/plan', '/compatibility', '/checkout', '/order', '/orders', '/admin']) { r = await call('GET', p, null, true); ok(r.status === 200 && (await r.text()).includes('<main'), `page ${p} served`); }
+  r = await call('GET', '/manifest.json', null, true);
+  ok(r.status === 200 && r.headers.get('content-type').includes('json'), 'manifest.json is served');
+  const man = await r.json();
+  ok(man.name === 'SimNow' && man.display === 'standalone' && man.theme_color && (man.icons || []).some((i) => i.sizes === '192x192') && (man.icons || []).some((i) => i.sizes === '512x512'), 'manifest has name, standalone display, theme color, and 192/512 icons');
+  r = await call('GET', '/sw.js', null, true);
+  const sw = await r.text();
+  ok(r.status === 200 && sw.includes('simnow-shell') && sw.includes('/api/'), 'service worker is served');
+  ok(/startsWith\(['"]\/api\//.test(sw) && sw.includes('fetch(req)'), 'service worker uses network-first for /api');
   origLog(`\n${pass} API checks passed`);
   srv.close(); fs.rmSync(process.env.DATA_DIR, { recursive: true, force: true });
 })().catch((e) => { origErr('FAILED:', e.message); process.exit(1); });

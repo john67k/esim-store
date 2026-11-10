@@ -27,6 +27,12 @@ Change `STORE_NAME` in `config.js` (or set the `STORE_NAME` environment variable
 
 Privacy: the transfer PIN is checked at checkout so we know the customer has it, then dropped. It is never saved, logged or shown again. Full card numbers never touch this server when Stripe is on. Only the last 4 digits of a port-in account number are kept.
 
+## Add it to your phone
+
+On iPhone: open the site in Safari, tap the Share button, then **Add to Home Screen**.
+On Android: open the browser menu and tap **Add to Home Screen** or **Install app**.
+The store works like an app from there — no App Store listing needed.
+
 ## Turn on real payments (Stripe)
 
 Do this on a computer or in your phone's browser. You will copy two values into Render.

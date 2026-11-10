@@ -1,17 +1,65 @@
-<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="icon" href="/favicon.svg"><link rel="stylesheet" href="/styles.css"><title>{store} · Prepaid eSIM phone plans</title></head><body><main>
-<section class="hero"><h1>Airvoice Wireless plans, delivered as eSIM</h1><p>Unlimited talk &amp; text with 1GB to unlimited data on the AT&amp;T network. Pick a plan, pay, and we activate your eSIM for you. No contract.</p>
-<div class="chips"><span>📶 Runs on AT&amp;T's network</span><span>📱 Keep your number</span><span>🔓 No contract</span></div>
-<p style="margin:14px 0 0"><a class="btn white" href="#plans">See plans</a> <a class="btn white" style="background:rgba(255,255,255,.18);color:#fff" href="/compatibility">Check my phone</a></p></section>
-<section class="card" aria-label="Filter plans"><div class="filters">
-<div class="full"><label for="q">Search</label><input id="q" type="search" placeholder="Search plans, e.g. unlimited or 15GB"></div>
-<div><label for="fNet">Network</label><select id="fNet"><option value="">All networks</option></select></div>
-<div><label for="fPrice">Max price</label><select id="fPrice"><option value="">Any price</option><option value="1500">Up to $15</option><option value="2500">Up to $25</option><option value="4000">Up to $40</option><option value="6000">Up to $60</option></select></div>
-<div><label for="fData">Data</label><select id="fData"><option value="">Any data</option><option value="0-4">Under 5GB</option><option value="5-14">5–14GB</option><option value="15-9999">15GB+</option><option value="unl">Unlimited</option></select></div>
-<div><label for="fSort">Sort</label><select id="fSort"><option value="price">Lowest price</option><option value="data">Most data</option></select></div>
-<div class="full toggles"><label class="pilltog"><input type="checkbox" id="f5g"> 5G only</label><label class="pilltog"><input type="checkbox" id="fUnl"> Unlimited only</label><label class="pilltog"><input type="checkbox" id="fHot"> Hotspot</label></div>
-</div></section>
-<p class="muted small" id="count"></p>
-<div class="grid" id="plans"></div>
-<p class="note warn" id="exampleNote" hidden>Plans marked "Example plan &amp; price" are sample data, not real carrier offers.</p>
-<p class="note small" id="sourceNote">Plans and prices match Airvoice Wireless's published prices as of Nov 9, 2026. Taxes &amp; fees included. Multi-month plans are paid upfront. <span class="storename-inline"></span> is an independent seller, not Airvoice Wireless.</p>
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#0E7C66"><meta name="mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-status-bar-style" content="default"><meta name="apple-mobile-web-app-title" content="SimNow"><link rel="manifest" href="/manifest.json"><link rel="icon" href="/favicon.svg" type="image/svg+xml"><link rel="apple-touch-icon" href="/icons/apple-touch-icon.png"><link rel="stylesheet" href="/styles.css"><title>{store} · Prepaid 5G eSIM plans</title></head><body><main>
+<section class="hero">
+  <p class="eyebrow">Runs on the AT&amp;T network</p>
+  <h1>Prepaid 5G plans, ready as an eSIM.</h1>
+  <p class="lede">Unlimited talk and text. Keep your number. No contract. Your eSIM is delivered after we confirm your order.</p>
+</section>
+
+<section id="plansSection" class="picker-section">
+  <div class="section-head">
+    <h2>Airvoice Wireless plans</h2>
+    <p>Pick a data size and a term. Prices include taxes and fees. Longer terms are paid up front and cost less per month.</p>
+  </div>
+  <div class="card picker">
+    <div class="data-tabs" id="dataTabs" role="tablist" aria-label="Data size"></div>
+    <div class="term-wrap"><div class="lbl">Term</div><div class="term-tabs" id="termTabs" role="tablist" aria-label="Plan term"></div></div>
+  </div>
+  <div id="picked"></div>
+  <div class="grid" id="plans"></div>
+  <p class="note warn" id="exampleNote" hidden>Plans marked "Example plan &amp; price" are sample data, not real carrier offers.</p>
+  <p class="small muted" id="sourceNote">Plan prices match Airvoice Wireless published rates as of Nov 9, 2026. Taxes and fees included. Multi-month plans are paid upfront. <span class="storename-inline"></span> is an independent seller, not Airvoice Wireless.</p>
+</section>
+
+<section class="trust" aria-label="Why SimNow">
+  <div><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="10" rx="2"/><path d="M7 11V8a5 5 0 0 1 10 0v3"/></svg> Secure checkout by Stripe</div>
+  <div><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1v22M5 6h14M5 18h14M8 6c0 3 1.8 5 4 5s4-2 4-5M8 18c0-3 1.8-5 4-5s4 2 4 5"/></svg> Taxes and fees included</div>
+  <div><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg> No contract, cancel anytime</div>
+</section>
+
+<section>
+  <div class="section-head"><h2>How it works</h2><p>Three steps. No store visit, no plastic SIM.</p></div>
+  <div class="steps-grid">
+    <div class="step"><span class="n">1</span><div><h3>Pick a plan</h3><p>Choose your data and how many months you want to pay for.</p></div></div>
+    <div class="step"><span class="n">2</span><div><h3>Pay</h3><p>Check out securely. You will get an order page you can come back to.</p></div></div>
+    <div class="step"><span class="n">3</span><div><h3>Scan your eSIM QR</h3><p>After we confirm your order, your QR code appears on that page. Scan it in Settings.</p></div></div>
+  </div>
+</section>
+
+<section>
+  <div class="section-head"><h2>Will it work on my phone?</h2><p>Your phone needs eSIM support and must be carrier-unlocked.</p></div>
+  <div class="card"><div id="compat"></div><p class="small muted" style="margin-top:12px">Most iPhones from the XR and XS on, Pixel 4 and newer, and Galaxy S20 and newer support eSIM. <a href="/compatibility">See the full check</a>.</p></div>
+</section>
+
+<section>
+  <div class="section-head"><h2>Keep your number</h2><p>Bring your current number when you check out. Do not cancel your old service until the transfer finishes.</p></div>
+  <div class="card">
+    <p>Have these ready from your current carrier (usually in their app or by asking support for a “port-out PIN” or “transfer PIN”):</p>
+    <ul class="steps"><li>The phone number you want to keep</li><li>Your account number</li><li>A transfer PIN (4–10 digits)</li><li>The billing ZIP on that account</li></ul>
+    <p class="small muted">We check that you have a PIN at checkout, then we drop it. It is never stored. We will ask for it again when we activate your line.</p>
+  </div>
+</section>
+
+<section>
+  <div class="section-head"><h2>Questions</h2></div>
+  <div class="faq">
+    <details><summary>What network do these plans use?</summary><p>These Airvoice Wireless plans run on the AT&amp;T network, with 5G+ where it is available and 4G LTE elsewhere.</p></details>
+    <details><summary>Is SimNow the same as Airvoice Wireless?</summary><p>No. SimNow is an independent seller. We are not Airvoice Wireless and are not affiliated with or endorsed by Airvoice or AT&amp;T. Trademarks belong to their owners.</p></details>
+    <details><summary>When do I get my eSIM?</summary><p>After we confirm your order. Your order page will move from Paid to Activating to Active, and the QR code will show up there once the line is activated.</p></details>
+    <details><summary>Are taxes and fees included?</summary><p>Yes. The price you see is the prepaid amount due today, including taxes and fees.</p></details>
+    <details><summary>Is there a contract?</summary><p>No. These are prepaid plans with no contract. After the term ends, service renews at the then-current rate unless you cancel.</p></details>
+    <details><summary>Can I keep my number?</summary><p>Yes. Choose “Transfer my current phone number” at checkout and keep your old service on until the transfer finishes.</p></details>
+  </div>
+</section>
+
+<div id="a2hs" hidden></div>
 </main><script src="/common.js"></script><script src="/home.js"></script></body></html>

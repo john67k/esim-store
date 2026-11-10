@@ -22,22 +22,24 @@ let pass = 0; const ok = (c, m) => { assert.ok(c, m); pass++; console.log('  ✓
   // Home + filters
   await page.goto(base + '/'); await page.waitForSelector('.plan');
   ok(await page.isVisible('#testbar'), 'test-mode banner visible');
-  ok((await page.textContent('#disclaimer')).includes('not affiliated with or endorsed by the carriers'), 'footer disclaimer visible');
+  ok(/independent seller/i.test(await page.textContent('#disclaimer')) && /not Airvoice/i.test(await page.textContent('#disclaimer')), 'footer says SimNow is an independent seller, not Airvoice');
   ok((await page.textContent('.brand')).includes('SimNow'), 'store brand shown');
+  ok((await page.textContent('h1')).includes('Airvoice Wireless plans'), 'plans presented as Airvoice Wireless plans');
   const all = await page.$$eval('.plan', (e) => e.length);
+  ok(all === 28 && (await page.$$eval('.plan .net', (e) => e.every((x) => x.textContent.includes('Airvoice Wireless plan')))), 'all 28 catalog plans are labeled Airvoice Wireless plans');
   await page.selectOption('#fNet', 'Airvoice Wireless'); const air = await page.$$eval('.plan .net', (e) => e.map((x) => x.textContent));
-  ok(air.length > 0 && air.length < all && air.every((t) => t.includes('Airvoice')), 'filter by network');
+  ok(air.length === all && air.every((t) => t.includes('Airvoice')), 'filter by network');
   await page.selectOption('#fNet', ''); await page.check('#fUnl'); ok(await page.$$eval('.plan', (e) => e.every((x) => x.textContent.includes('Unlimited'))), 'unlimited filter');
   await page.uncheck('#fUnl'); await page.selectOption('#fPrice', '1500'); ok(await page.$$eval('.plan .price', (e) => e.every((x) => parseFloat(x.textContent.slice(1)) <= 15)), 'price filter');
   await page.selectOption('#fPrice', ''); await page.selectOption('#fData', '15-9999'); ok((await page.$$eval('.plan', (e) => e.length)) >= 1, 'data filter');
   await page.selectOption('#fData', ''); await page.check('#f5g'); ok(await page.$$eval('.plan', (e) => e.every((x) => x.textContent.includes('5G'))), '5G filter');
-  await page.uncheck('#f5g'); ok(await page.isVisible('#exampleNote') && (await page.$$eval('.tag.y', (e) => e.length)) >= all, 'plans labeled as example data');
+  await page.uncheck('#f5g'); ok(await page.isHidden('#exampleNote') && (await page.$$eval('.tag.y', (e) => e.length)) === 0, 'real plans are not labeled as example data');
   await noHScroll('home'); await page.evaluate(() => scrollTo(0, 0)); await shot('01-home.png');
 
   // Plan detail
-  await page.click('[data-plan=boost-unl] a.btn.light'); await page.waitForSelector('#details');
+  await page.click('[data-plan=unlimited-1-month] a.btn.light'); await page.waitForSelector('#details');
   const det = await page.textContent('#plan');
-  ok(['Data', 'Talk', 'Text', 'Hotspot', 'Valid for', 'Network', 'Boost Mobile', '$45.00', 'Example plan'].every((s) => det.includes(s)), 'plan detail shows data/talk/text/hotspot/validity/network/price');
+  ok(['Data', 'Talk', 'Text', 'Valid for', 'Network', 'Airvoice Wireless', '$54.00', 'after we confirm your order'].every((s) => det.includes(s)) && !det.includes('Example plan'), 'plan detail shows real Airvoice unlimited plan at $54.00');
   await noHScroll('plan detail'); await shot('02-plan-detail.png');
 
   // Compatibility page
@@ -49,8 +51,9 @@ let pass = 0; const ok = (c, m) => { assert.ok(c, m); pass++; console.log('  ✓
   await noHScroll('compatibility'); await shot('03-compatibility.png');
 
   // Checkout: bad card first, then good card + port-in
-  await page.goto(base + '/checkout?plan=value-15'); await page.waitForSelector('#planSel option', { state: 'attached' }); await page.waitForFunction(() => document.querySelector('#payBtn').textContent.includes('$'));
-  ok((await page.inputValue('#planSel')) === 'value-15' && (await page.textContent('#payBtn')).includes('$25.00'), 'checkout preselects plan');
+  await page.goto(base + '/checkout?plan=10gb-1-month'); await page.waitForSelector('#planSel option', { state: 'attached' }); await page.waitForFunction(() => document.querySelector('#payBtn').textContent.includes('$'));
+  ok((await page.inputValue('#planSel')) === '10gb-1-month' && (await page.textContent('#payBtn')).includes('$30.00'), 'checkout preselects plan');
+  ok(/independent seller/i.test(await page.textContent('#checkoutNote')) && /not Airvoice/i.test(await page.textContent('#checkoutNote')) && /confirm your order/i.test(await page.textContent('#checkoutNote')), 'checkout notes independent seller and post-purchase activation');
   await page.fill('#email', 'maria@example.com');
   await page.selectOption('#cBrand', 'Apple'); await page.selectOption('#cModel', { label: 'iPhone 15' });
   await page.check('#unlocked'); await page.check('#portOn');
@@ -60,17 +63,16 @@ let pass = 0; const ok = (c, m) => { assert.ok(c, m); pass++; console.log('  ✓
   await page.fill('#ccNum', ''); await page.type('#ccNum', '4242424242424242');
   ok((await page.inputValue('#ccNum')) === '4242 4242 4242 4242', 'card number formatted');
   await noHScroll('checkout'); await page.evaluate(() => scrollTo(0, 0)); await shot('04-checkout.png');
-  await page.click('#payBtn'); await page.waitForURL(/\/order\?/); await page.waitForSelector('#qr');
-  await page.waitForFunction(() => document.querySelector('#qr').complete && document.querySelector('#qr').naturalWidth > 0);
+  await page.click('#payBtn'); await page.waitForURL(/\/order\?/); await page.waitForSelector('#awaitingNote');
 
-  // Confirmation
+  // Confirmation — paid, waiting for the owner to activate (no SAMPLE QR)
   const conf = await page.textContent('#order');
-  ok(await page.isVisible('#sampleWarn') && conf.includes('will not activate'), 'SAMPLE warning on confirmation');
-  ok((await page.textContent('#smdp')).endsWith('.invalid') && (await page.textContent('#lpa')).startsWith('LPA:1$'), 'SM-DP+ address + LPA activation code shown');
+  ok(await page.isVisible('#awaitingNote') && (await page.textContent('#statusBadge')).includes('Paid – awaiting activation'), 'confirmation shows Paid – awaiting activation');
+  ok(!(await page.$('#qr')) && !(await page.$('#sampleWarn')) && !/SAMPLE/i.test(conf), 'no SAMPLE QR code on a real paid order');
   ok(conf.includes('Received (hidden for your security)') && !conf.includes('246813') && !(await page.content()).includes('246813'), 'PIN not shown after submit');
-  await page.click('[data-tab=android]'); ok(await page.isVisible('[data-tabpane=android]'), 'Android install steps'); await page.click('[data-tab=ios]');
   const orderNum = await page.textContent('#orderNum');
-  await noHScroll('confirmation'); await shot('05-confirmation-sample-qr.png');
+  const orderUrl = page.url();
+  await noHScroll('confirmation'); await shot('05-awaiting-activation.png');
 
   // Apple Pay simulated sheet
   await page.goto(base + '/checkout?plan=starter-5'); await page.fill('#email', 'sam@example.com'); await page.check('#unlocked'); await page.click('[data-m=apple_pay]');
@@ -79,13 +81,26 @@ let pass = 0; const ok = (c, m) => { assert.ok(c, m); pass++; console.log('  ✓
 
   // My orders lookup
   await page.goto(base + '/orders'); await page.fill('#lEmail', 'maria@example.com'); await page.fill('#lNum', orderNum); await page.click('#lookup button');
-  await page.waitForSelector('#qr'); ok((await page.textContent('#orderNum')) === orderNum, 'My orders lookup works');
+  await page.waitForSelector('#awaitingNote'); ok((await page.textContent('#orderNum')) === orderNum, 'My orders lookup works');
 
   // Admin
   await page.goto(base + '/admin'); await page.waitForSelector('#login:not([hidden])'); await page.fill('#pw', pw); await page.click('#login button');
   await page.waitForSelector('.adm-order'); ok((await page.$$eval('.adm-order', (e) => e.length)) >= 2 && (await page.textContent('#orderList')).includes(orderNum), 'admin lists orders');
   ok(!(await page.content()).includes('246813'), 'admin never shows PIN');
+  const row = page.locator('.adm-order', { hasText: orderNum });
+  await row.locator('[name=iccid]').fill('8901410123456789012');
+  await row.locator('[name=smdpAddress]').fill('smdp.example.com');
+  await row.locator('[name=activationCode]').fill('ABCDE-FGHI-JKLM');
+  await row.locator('[name=phoneNumber]').fill('4155550100');
+  await row.locator('button[type=submit]').click();
+  await page.waitForFunction((n) => { const el = [...document.querySelectorAll('.adm-order')].find((e) => e.textContent.includes(n)); return el && el.textContent.includes('Activated'); }, orderNum);
   await noHScroll('admin'); await shot('06-admin-orders.png');
+  await page.goto(orderUrl); await page.waitForSelector('#qr');
+  await page.waitForFunction(() => document.querySelector('#qr').complete && document.querySelector('#qr').naturalWidth > 0);
+  ok((await page.textContent('#statusBadge')).includes('Activated') && (await page.textContent('#smdp')) === 'smdp.example.com' && (await page.textContent('#lpa')) === 'LPA:1$smdp.example.com$ABCDE-FGHI-JKLM', 'customer sees real activation details after admin activates');
+  ok(!(await page.content()).includes('SAMPLE'), 'activated order has no SAMPLE watermark');
+  await page.click('[data-tab=android]'); ok(await page.isVisible('[data-tabpane=android]'), 'Android install steps'); await page.click('[data-tab=ios]');
+  await page.goto(base + '/admin');
   await page.click('[data-tab=plans]'); await page.click('#addPlan');
   await page.fill('#pName', 'Weekend 2GB'); await page.fill('#pNet', 'AT&T network'); await page.fill('#pCost', '4.00'); await page.fill('#pMarkup', '50');
   ok((await page.inputValue('#pPrice')) === '6.00', 'markup % fills price'); await page.fill('#pData', '2'); await page.fill('#pDays', '3');

@@ -11,16 +11,18 @@ async function api(path, opts = {}) {
   return data;
 }
 const dataText = (p) => p.unlimited ? 'Unlimited' + (p.dataGB ? ` (${p.dataGB}GB high-speed)` : '') : `${p.dataGB}GB`;
+const termText = (p) => p.termMonths ? (p.termMonths === 1 ? '1 month' : `${p.termMonths} months`) : `${p.validityDays} days`;
+const perMonth = (p) => p.termMonths > 1 && p.monthlyPriceCents ? ` (${money(p.monthlyPriceCents)}/mo)` : '';
 function planSpecs(p) {
   return `<ul class="specs"><li><b>Data</b>${esc(dataText(p))}</li><li><b>Talk / text</b>${esc(p.talk)} / ${esc(p.text)}</li>
-  <li><b>Hotspot</b>${p.hotspotGB ? esc(p.hotspotGB) + 'GB' : 'Not included'}</li><li><b>Valid for</b>${esc(p.validityDays)} days</li></ul>`;
+  <li><b>Network</b>5G+ / 4G LTE</li><li><b>Term</b>${esc(termText(p))}</li></ul>`;
 }
 function planTags(p) {
   return `<div class="tags">${p.fiveG ? '<span class="tag">5G</span>' : '<span class="tag">4G LTE</span>'}${p.unlimited ? '<span class="tag g">Unlimited</span>' : ''}${p.example ? '<span class="tag y">Example plan &amp; price</span>' : ''}</div>`;
 }
 function planCard(p) {
-  return `<div class="plan" data-plan="${esc(p.id)}"><div class="net">Runs on ${esc(p.network)}</div><h3>${esc(p.name)}</h3>${planTags(p)}
-  <div class="price">${money(p.priceCents)} <small>/ ${esc(p.validityDays)} days</small></div>${planSpecs(p)}
+  return `<div class="plan" data-plan="${esc(p.id)}"><div class="net">${esc(p.network)} plan</div><h3>${esc(p.name)}</h3>${planTags(p)}
+  <div class="price">${money(p.priceCents)} <small>for ${esc(termText(p))}${esc(perMonth(p))}</small></div>${planSpecs(p)}
   <div class="acts"><a class="btn light" href="/plan?id=${encodeURIComponent(p.id)}">Details</a><a class="btn" href="/checkout?plan=${encodeURIComponent(p.id)}">Buy</a></div></div>`;
 }
 let CONFIG = null;
@@ -29,11 +31,11 @@ const ready = (async () => {
   document.title = document.title.replace('{store}', CONFIG.storeName);
   const here = location.pathname.replace(/\.html$/, '');
   const link = (h, t) => `<a href="${h}" class="${here === h ? 'on' : ''}">${t}</a>`;
-  document.body.insertAdjacentHTML('afterbegin', `${CONFIG.testMode ? '<div class="testbar" id="testbar"><b>TEST MODE</b> · Example plans and prices. Payments are simulated and eSIMs are samples that won\'t activate.</div>' : ''}
+  document.body.insertAdjacentHTML('afterbegin', `${CONFIG.testMode ? '<div class="testbar" id="testbar"><b>TEST MODE</b> · Payments are simulated. Nothing is charged.</div>' : ''}
   <header class="top"><div class="in"><a class="brand" href="/"><i>${esc(CONFIG.storeName[0] || 'S')}</i><span class="storename">${esc(CONFIG.storeName)}</span></a>
   <nav>${link('/', 'Plans')}${link('/compatibility', 'Check phone')}${link('/orders', 'My orders')}</nav></div></header>`);
   document.body.insertAdjacentHTML('beforeend', `<footer><p id="disclaimer"><b>${esc(CONFIG.disclaimer)}</b></p>
-  <p>${esc(CONFIG.storeName)} sells prepaid plans delivered as eSIM. Your phone must support eSIM and be carrier-unlocked. Questions: ${esc(CONFIG.supportEmail)}</p>
+  <p>${esc(CONFIG.storeName)} resells Airvoice Wireless prepaid plans delivered as eSIM. ${esc(CONFIG.activationNote)} Your phone must support eSIM and be carrier-unlocked. Questions: ${esc(CONFIG.supportEmail)}</p>
   <p>© ${new Date().getFullYear()} ${esc(CONFIG.storeName)} · <a href="/admin">Owner login</a></p></footer>`);
   $$('.storename-inline').forEach((el) => (el.textContent = CONFIG.storeName));
   return CONFIG;

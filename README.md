@@ -1,55 +1,89 @@
-# SimNow eSIM store (test mode)
+# SimNow eSIM store
 
-An online store that sells prepaid US phone plans delivered as an eSIM.
-Customers pick a plan, check their phone works, pay, and get an eSIM QR code on screen.
+An online store that sells **Airvoice Wireless plans** delivered as an eSIM.
+Customers pick a plan, pay, and get their eSIM QR code on their order page after you activate the line.
 
-**Right now it runs in TEST MODE:** the plans and prices are example data, payments are simulated,
-and the eSIM QR code is a SAMPLE that will not activate. Nothing is sold or charged.
+**SimNow is an independent seller, not Airvoice Wireless.** This store does not use Airvoice logos and is not the official Airvoice website.
+
+## What is live today, and what still needs you
+
+- **Plans and prices** are the real Airvoice Wireless prepaid plans, recorded from [airvoicewireless.com/plans](https://airvoicewireless.com/plans) on **November 9, 2026**. Multi-month plans are paid upfront (the monthly rate is shown for reference).
+- **Payments** can be real. Add your Stripe keys (steps below) and customers pay by card, Apple Pay, Google Pay and more on Stripe's page. Until you add the keys, the store stays in TEST MODE and nothing is charged.
+- **Activation is still done by you, by hand.** You are not an authorized Airvoice dealer yet, so the store cannot issue a real eSIM by itself. After a customer pays, the order shows **Paid – awaiting activation**. You activate the line in the dealer portal (once HTH Communications approves you), then paste the eSIM details in `/admin`. The customer's order page then shows the real QR code (`LPA:1$SM-DP+ address$activation code`).
 
 ## Rename the store
+
 Change `STORE_NAME` in `config.js` (or set the `STORE_NAME` environment variable on Render). That one value is used everywhere.
 
 ## What's inside
-- **Home**: search and filter plans by network, price, data, 5G, unlimited and hotspot.
-- **Plan page**: data, talk/text, hotspot, how many days it lasts, network, price.
-- **Check my phone**: pick an iPhone, Pixel or Galaxy model to see if it supports eSIM, plus a reminder that the phone must be carrier-unlocked.
-- **Checkout**: email, plan, optional "keep my number" (current carrier, account number, transfer PIN, ZIP), and payment by card, Apple Pay, Google Pay, Cash App, PayPal or crypto (all simulated). Card numbers are checked with the Luhn rule.
-- **Confirmation**: QR code, the manual code (SM-DP+ address + activation code in `LPA:1$address$code` format), and step-by-step install help for iPhone and Android.
+
+- **Home**: Airvoice Wireless plans, with search and filters (price, data, term, 5G, unlimited).
+- **Plan page**: data, talk/text, how long it lasts, network, price, and a note that activation happens after we confirm the order.
+- **Check my phone**: pick an iPhone, Pixel or Galaxy model to see if it supports eSIM. The phone must also be carrier-unlocked.
+- **Checkout**: email, plan, optional "keep my number", and payment. A note on the page says SimNow is an independent seller and that activation is completed after the order is confirmed.
+- **Order page**: "Paid – awaiting activation" at first; after you activate, the QR code and the manual SM-DP+ / activation codes.
 - **My orders**: find an order with email + order number.
-- **Owner dashboard** (`/admin`): see orders, sales and profit; add, edit, hide or remove plans; set your cost and markup % or your own price.
+- **Owner dashboard** (`/admin`): see orders, mark a paid order activated (ICCID, SM-DP+ address, activation code, phone number), and edit plans and prices.
 
-Privacy: the transfer PIN is passed to the supplier and then dropped. It is never saved, logged or shown again. Full card numbers and CVCs are never saved, and only the last 4 digits of the account number are kept.
+Privacy: the transfer PIN is checked at checkout so we know the customer has it, then dropped. It is never saved, logged or shown again. Full card numbers never touch this server when Stripe is on. Only the last 4 digits of a port-in account number are kept.
 
-## Run it
+## Turn on real payments (Stripe)
+
+Do this on a computer or in your phone's browser. You will copy two values into Render.
+
+1. Open [Stripe](https://dashboard.stripe.com/register) and create an account. Finish the identity and bank checks so you can accept live payments (you can start in test mode first).
+2. Open [API keys](https://dashboard.stripe.com/apikeys). Copy the **Secret key**. It starts with `sk_test_` (test) or `sk_live_` (real charges). Never share this key in chat or email.
+3. Open your SimNow service on [Render](https://dashboard.render.com). Tap **Environment**.
+4. Find `STRIPE_SECRET_KEY` and paste the secret key. Save.
+5. Still on Stripe, open [Webhooks](https://dashboard.stripe.com/webhooks) and add an endpoint:
+   - URL: `https://YOUR-SITE.onrender.com/api/stripe/webhook` (use your real site link, for example `https://esim-store-qyu9.onrender.com/api/stripe/webhook`)
+   - Events to send: `checkout.session.completed`, `checkout.session.async_payment_succeeded`, and `checkout.session.expired`
+6. Open that webhook and copy the **Signing secret**. It starts with `whsec_`.
+7. Back in Render → Environment, paste it into `STRIPE_WEBHOOK_SECRET`. Save, and wait for the service to restart.
+8. Optional but helpful: add `PUBLIC_URL` with your site link (`https://esim-store-qyu9.onrender.com`) so Stripe's "success" and "cancel" pages always come back to you.
+
+When `STRIPE_SECRET_KEY` is set, the TEST MODE banner goes away and checkout sends customers to Stripe. When it is empty, the store stays in TEST MODE.
+
+Use Stripe test keys (`sk_test_…` and a test webhook secret) until you are ready to take real money. In the Stripe test dashboard, use card `4242 4242 4242 4242`.
+
+## How you fulfill an order
+
+1. A customer pays. You will see the order in `/admin` as **Paid – awaiting activation**.
+2. In the Airvoice / HTH dealer portal, activate that plan as an eSIM (and start the number transfer if they asked to keep their number). You will need to ask the customer for the transfer PIN again — it is not stored here.
+3. On the same order in `/admin`, enter the ICCID, SM-DP+ address, activation code (or paste a full `LPA:1$…` code), and the phone number if you have it. Tap **Mark activated**.
+4. The customer refreshes their order page (or finds it under My orders) and scans the QR code.
+
+## Run it yourself
+
 ```
 npm install
 npm start            # http://localhost:3100 (or $PORT)
-npm test             # API + phone-size browser tests
+npm test             # API + phone-size browser tests + Stripe tests
 npm run screenshots  # saves screenshots/ (needs Chrome at /usr/bin/google-chrome or CHROME_PATH)
 ```
+
 If `ADMIN_PASSWORD` isn't set, a random one is made and saved in `data/admin-password.txt`.
 Data is kept in `data/db.json` (created automatically).
 
-## Put it online (Render, free)
-Push this folder to GitHub, then open `https://render.com/deploy?repo=<your repo URL>`. `render.yaml` sets everything up and generates `ADMIN_PASSWORD` (find it in Render under your service, then Environment).
+## Put it online (Render)
+
+The site is already at [https://esim-store-qyu9.onrender.com](https://esim-store-qyu9.onrender.com) from the `john67k/esim-store` GitHub repo. After you push an update, Render will redeploy. Your admin password is in Render under Environment, then `ADMIN_PASSWORD`.
+
 Note: on Render's free plan the disk is wiped on each deploy/restart, so orders and plan edits are lost. Before going live, add a Render disk (paid) and set `DATA_DIR` to it, or move to a database.
 
-## Going live: what you need (plain language)
-1. **Get the right to sell the plans.** You can't just resell Boost Mobile, Airvoice or other carrier plans. Pick one:
-   - **Become an authorized dealer** with each carrier you want to sell (each has its own dealer program, application and rules), or
-   - **Sign up with a prepaid wholesaler / distributor** that already has carrier agreements and gives dealers an API for activations and refills. This is usually the easiest way to start.
-   Ask them for: API access for eSIM activation and port-in, wholesale prices, and their rules on how you may use carrier names in ads.
-2. **Connect the supplier.** Fill in the TODOs in `providers/supplier/wholesaler.js`, set `SUPPLIER=wholesaler`, `SUPPLIER_API_URL` and `SUPPLIER_API_KEY`. Put the supplier's real plans and your prices in the admin page, and untick "Example data".
-3. **Set up Stripe.** Create a Stripe account (needs ID and bank verification), finish `providers/payments/stripe.js` (notes inside), set `PAYMENT_PROVIDER=stripe` and the Stripe keys. Switch the card form to Stripe's Payment Element so card numbers never touch your server. PayPal and crypto need their own accounts (PayPal Business; Coinbase Commerce, BitPay or similar).
-4. **Handle number transfers (port-in) carefully.** Only submit a transfer the customer asked for, and keep proof of their consent. Send the PIN only to the supplier and never store it. Follow the carrier/supplier rules and FCC rules against SIM-swap and port-out fraud: check the customer's identity, watch for fraud, and give a way to report problems.
-5. **Legal basics.** Add terms of service, a privacy policy and a refund policy. Collect sales tax and telecom fees where required (your supplier or an accountant can tell you which). Keep the "not affiliated" footer and don't use carrier logos unless your dealer agreement allows it.
-6. **Add email** so customers get their QR code by email (e.g. Postmark, Resend or SendGrid).
+## Going further
+
+1. **Get the right to sell Airvoice plans.** Email sales@hthcomm.com and ask whether an online-only seller can be authorized to activate Airvoice eSIMs. You will usually need an EIN.
+2. Once you have a dealer portal or a wholesaler API, we can connect it so activations happen automatically.
+3. Add terms of service, a privacy policy and a refund policy. Collect sales tax where required. Keep the "independent seller" footer and don't use Airvoice logos unless your dealer agreement allows it.
+4. Add email so customers get a receipt and, later, their QR code (for example Postmark, Resend or SendGrid).
 
 ## Files
-- `config.js`: store name, disclaimer, which supplier/payment provider to use
-- `server.js`: the web server and API
-- `providers/supplier/mock.js`: test supplier (SAMPLE eSIMs); `wholesaler.js`: stub for the real one
-- `providers/payments/mock.js`: simulated payments; `stripe.js`: stub for going live
-- `lib/sample-plans.js`: example catalog; `lib/devices.js`: eSIM phone list
+
+- `config.js`: store name and the independent-seller disclaimer
+- `lib/airvoice-plans.js`: the official plan catalog, with source URLs and the date they were recorded
+- `server.js`: the web server and API, including the Stripe webhook and manual activation
+- `providers/payments/stripe.js`: Stripe Checkout; `mock.js`: simulated payments for TEST MODE
+- `providers/supplier/`: kept for a future automatic activation API
 - `public/`: the pages (plain HTML/CSS/JS)
-- `test/`: API tests (`e2e.js`) and phone-size browser tests (`ui.js`)
+- `test/`: API tests (`e2e.js`), phone-size browser tests (`ui.js`), and Stripe tests (`stripe.js`)

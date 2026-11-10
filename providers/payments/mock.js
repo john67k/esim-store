@@ -23,7 +23,7 @@ function validate(method, d = {}) {
 }
 
 module.exports = {
-  name: 'mock', testMode: true, METHODS, RATES,
+  name: 'mock', testMode: true, mode: 'direct', METHODS, RATES,
   async charge({ amountCents, method, details = {} }) {
     const err = validate(method, details);
     if (err) return { ok: false, userError: err };

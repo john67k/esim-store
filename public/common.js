@@ -20,28 +20,56 @@ function planSpecs(p) {
 function planTags(p) {
   return `<div class="tags">${p.fiveG ? '<span class="tag">5G</span>' : '<span class="tag">4G LTE</span>'}${p.unlimited ? '<span class="tag g">Unlimited</span>' : ''}${p.example ? '<span class="tag y">Example plan &amp; price</span>' : ''}</div>`;
 }
-function planCard(p) {
-  return `<div class="plan" data-plan="${esc(p.id)}"><div class="net">${esc(p.network)} plan</div><h3>${esc(p.name)}</h3>${planTags(p)}
-  <div class="price">${money(p.priceCents)} <small>for ${esc(termText(p))}${esc(perMonth(p))}</small></div>${planSpecs(p)}
-  <div class="acts"><a class="btn light" href="/plan?id=${encodeURIComponent(p.id)}">Details</a><a class="btn" href="/checkout?plan=${encodeURIComponent(p.id)}">Buy</a></div></div>`;
+function planCard(p, extra = '') {
+  const priced = p.termMonths && p.monthlyPriceCents
+    ? `<div class="price">${money(p.monthlyPriceCents)} <small>/mo</small></div><div class="due">Due today ${money(p.priceCents)} · ${esc(termText(p))}</div>`
+    : `<div class="price">${money(p.priceCents)} <small>for ${esc(termText(p))}</small></div>`;
+  return `<div class="plan" data-plan="${esc(p.id)}">${extra}<div class="net">${esc(p.network)} plan</div><h3>${esc(p.name)}</h3>${planTags(p)}
+  ${priced}${planSpecs(p)}
+  <div class="acts"><a class="btn light" href="/plan?id=${encodeURIComponent(p.id)}">Details</a><a class="btn" href="/checkout?plan=${encodeURIComponent(p.id)}">Get this plan</a></div></div>`;
 }
 let CONFIG = null;
 const ready = (async () => {
   CONFIG = await api('/api/config');
   document.title = document.title.replace('{store}', CONFIG.storeName);
-  const here = location.pathname.replace(/\.html$/, '');
+  const here = location.pathname.replace(/\.html$/, '') || '/';
   const link = (h, t) => `<a href="${h}" class="${here === h ? 'on' : ''}">${t}</a>`;
-  document.body.insertAdjacentHTML('afterbegin', `${CONFIG.testMode ? '<div class="testbar" id="testbar"><b>TEST MODE</b> · Payments are simulated. Nothing is charged.</div>' : ''}
-  <header class="top"><div class="in"><a class="brand" href="/"><i>${esc(CONFIG.storeName[0] || 'S')}</i><span class="storename">${esc(CONFIG.storeName)}</span></a>
+  const logo = `<img src="/logo.svg" width="32" height="32" alt="">`;
+  document.body.insertAdjacentHTML('afterbegin', `${CONFIG.testMode ? '<div class="demopill" id="testbar"><span>Demo mode – payments not live</span></div>' : ''}
+  <header class="top"><div class="in"><a class="brand" href="/">${logo}<span class="storename">${esc(CONFIG.storeName)}</span></a>
   <nav>${link('/', 'Plans')}${link('/compatibility', 'Check phone')}${link('/orders', 'My orders')}</nav></div></header>`);
-  document.body.insertAdjacentHTML('beforeend', `<footer><p id="disclaimer"><b>${esc(CONFIG.disclaimer)}</b></p>
-  <p>${esc(CONFIG.storeName)} resells Airvoice Wireless prepaid plans delivered as eSIM. ${esc(CONFIG.activationNote)} Your phone must support eSIM and be carrier-unlocked. Questions: ${esc(CONFIG.supportEmail)}</p>
+  document.body.insertAdjacentHTML('beforeend', `<footer>
+  <p id="disclaimer">${esc(CONFIG.disclaimer)}</p>
+  <p>${esc(CONFIG.storeName)} sells prepaid plans delivered as eSIM. ${esc(CONFIG.activationNote)} Your phone must support eSIM and be carrier-unlocked. Questions: ${esc(CONFIG.supportEmail)}</p>
   <p>© ${new Date().getFullYear()} ${esc(CONFIG.storeName)} · <a href="/admin">Owner login</a></p></footer>`);
   $$('.storename-inline').forEach((el) => (el.textContent = CONFIG.storeName));
+  if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js').catch(() => {});
   return CONFIG;
 })();
 
-// Device compatibility widget (used on /compatibility and /checkout)
+function showInstallHint(root) {
+  if (!root) return;
+  const standalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone;
+  if (standalone || localStorage.getItem('simnow-a2hs') === '1') { root.hidden = true; return; }
+  const ios = /iphone|ipad|ipod/i.test(navigator.userAgent);
+  root.hidden = false;
+  root.innerHTML = `<img src="/logo.svg" width="36" height="36" alt="" style="border-radius:9px">
+    <div style="flex:1;min-width:0"><b>Add ${esc(CONFIG.storeName)} to your Home Screen</b>
+    <p class="small muted">${ios ? 'On iPhone: tap the Share button, then Add to Home Screen.' : 'On Android: open the browser menu and tap Add to Home Screen or Install app.'}</p></div>
+    <button type="button" class="btn sm light" id="a2hsHide">Not now</button>`;
+  const hide = () => { localStorage.setItem('simnow-a2hs', '1'); root.hidden = true; };
+  $('#a2hsHide', root).onclick = hide;
+  window.addEventListener('beforeinstallprompt', (e) => {
+    e.preventDefault();
+    const btn = $('#a2hsHide', root);
+    if (!btn) return;
+    btn.textContent = 'Add';
+    btn.classList.remove('light');
+    btn.onclick = async () => { try { e.prompt(); await e.userChoice; } catch {} hide(); };
+  }, { once: true });
+}
+
+// Device compatibility widget (used on /compatibility, checkout, and the home page)
 let DEVICES = null;
 async function compatWidget(root, onChange) {
   DEVICES ||= await api('/api/devices');
@@ -55,7 +83,7 @@ async function compatWidget(root, onChange) {
     if (brand.value === 'other') { out.innerHTML = `<div class="note warn" data-esim="unknown">Not on our list. On iPhone go to Settings › Cellular and look for "Add eSIM". On Android go to Settings › Network (or Connections) › SIM and look for "Add eSIM" or "Download a SIM".${unlocked}</div>`; onChange?.(null); return; }
     if (!d) { out.innerHTML = ''; onChange?.(null); return; }
     const cls = { yes: 'ok', limited: 'warn', no: 'err' }[d.esim];
-    const msg = { yes: `✅ Good news: the ${esc(d.model)} supports eSIM.`, limited: `⚠️ The ${esc(d.model)} may support eSIM.`, no: `❌ The ${esc(d.model)} does not support eSIM, so these plans won't work on it.` }[d.esim];
+    const msg = { yes: `Yes — the ${esc(d.model)} supports eSIM.`, limited: `The ${esc(d.model)} may support eSIM.`, no: `The ${esc(d.model)} does not support eSIM, so these plans will not work on it.` }[d.esim];
     out.innerHTML = `<div class="note ${cls}" data-esim="${d.esim}"><b>${msg}</b>${d.note ? `<div class="small">${esc(d.note)}</div>` : ''}${d.esim !== 'no' ? unlocked : ''}</div>`;
     onChange?.(d);
   };

@@ -16,25 +16,36 @@ let pass = 0; const ok = (c, m) => { assert.ok(c, m); pass++; console.log('  ✓
   const ctx = await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true });
   const page = await ctx.newPage();
   const errors = []; page.on('pageerror', (e) => errors.push(e.message)); page.on('console', (m) => m.type() === 'error' && errors.push(m.text()));
-  const shot = async (name) => { if (process.env.SHOTS) { await page.evaluate(() => scrollTo(0, 0)); await page.waitForTimeout(300); await page.screenshot({ path: path.join(OUT, name), fullPage: true }); console.log('    saved screenshots/' + name); } };
+  const shot = async (name, opts = {}) => { if (process.env.SHOTS) { if (opts.fullPage !== false) await page.evaluate(() => scrollTo(0, 0)); await page.waitForTimeout(300); await page.screenshot({ path: path.join(OUT, name), fullPage: opts.fullPage !== false }); console.log('    saved screenshots/' + name); } };
   const noHScroll = async (label) => ok(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1), `${label}: no sideways scrolling at 390px`);
 
-  // Home + filters
+  // Home + plan picker
   await page.goto(base + '/'); await page.waitForSelector('.plan');
-  ok(await page.isVisible('#testbar'), 'test-mode banner visible');
+  ok(await page.isVisible('#testbar') && /Demo mode/.test(await page.textContent('#testbar')) && /not live/i.test(await page.textContent('#testbar')), 'demo-mode pill visible when Stripe is off');
   ok(/independent seller/i.test(await page.textContent('#disclaimer')) && /not Airvoice/i.test(await page.textContent('#disclaimer')), 'footer says SimNow is an independent seller, not Airvoice');
   ok((await page.textContent('.brand')).includes('SimNow'), 'store brand shown');
-  ok((await page.textContent('h1')).includes('Airvoice Wireless plans'), 'plans presented as Airvoice Wireless plans');
-  const all = await page.$$eval('.plan', (e) => e.length);
-  ok(all === 28 && (await page.$$eval('.plan .net', (e) => e.every((x) => x.textContent.includes('Airvoice Wireless plan')))), 'all 28 catalog plans are labeled Airvoice Wireless plans');
-  await page.selectOption('#fNet', 'Airvoice Wireless'); const air = await page.$$eval('.plan .net', (e) => e.map((x) => x.textContent));
-  ok(air.length === all && air.every((t) => t.includes('Airvoice')), 'filter by network');
-  await page.selectOption('#fNet', ''); await page.check('#fUnl'); ok(await page.$$eval('.plan', (e) => e.every((x) => x.textContent.includes('Unlimited'))), 'unlimited filter');
-  await page.uncheck('#fUnl'); await page.selectOption('#fPrice', '1500'); ok(await page.$$eval('.plan .price', (e) => e.every((x) => parseFloat(x.textContent.slice(1)) <= 15)), 'price filter');
-  await page.selectOption('#fPrice', ''); await page.selectOption('#fData', '15-9999'); ok((await page.$$eval('.plan', (e) => e.length)) >= 1, 'data filter');
-  await page.selectOption('#fData', ''); await page.check('#f5g'); ok(await page.$$eval('.plan', (e) => e.every((x) => x.textContent.includes('5G'))), '5G filter');
-  await page.uncheck('#f5g'); ok(await page.isHidden('#exampleNote') && (await page.$$eval('.tag.y', (e) => e.length)) === 0, 'real plans are not labeled as example data');
-  await noHScroll('home'); await page.evaluate(() => scrollTo(0, 0)); await shot('01-home.png');
+  ok(/Prepaid 5G/.test(await page.textContent('h1')) && /AT&T/.test(await page.textContent('.hero')), 'hero describes prepaid 5G plans on the AT&T network');
+  ok((await page.textContent('#plansSection')).includes('Airvoice Wireless plans'), 'plans presented as Airvoice Wireless plans');
+  ok(await page.isVisible('[data-plan="10gb-1-month"]') && (await page.textContent('#picked .net')).includes('Airvoice Wireless plan'), 'default plan is 10GB 1 month, labeled as an Airvoice Wireless plan');
+  ok((await page.textContent('#picked')).includes('Most popular') && (await page.textContent('#dataTabs')).includes('Most popular'), '10GB is marked Most popular');
+  const tabs = await page.$$eval('#dataTabs button', (e) => e.map((x) => x.textContent));
+  ok(['1GB', '3GB', '6GB', '10GB', '16GB', '25GB', 'Unlimited'].every((t) => tabs.some((x) => x.includes(t))), 'data-size tabs');
+  ok(await page.isHidden('#exampleNote') && (await page.$$eval('.tag.y', (e) => e.length)) === 0, 'real plans are not labeled as example data');
+  await noHScroll('home'); await page.evaluate(() => scrollTo(0, 0)); await shot('v2-home.png'); await shot('01-home.png');
+  await page.click('#termTabs [data-term="12"]'); await page.waitForSelector('[data-plan="10gb-12-months"]');
+  const year = await page.textContent('#picked');
+  ok(year.includes('$23.00') && year.includes('$276.00') && /Save \$84/.test(year), '12-month term shows monthly price, amount due today, and savings vs month-to-month');
+  await page.evaluate(() => {
+    const el = document.querySelector('.picker');
+    const header = document.querySelector('header.top');
+    const pill = document.querySelector('#testbar');
+    const offset = (header ? header.getBoundingClientRect().height : 0) + (pill ? pill.getBoundingClientRect().height : 0) + 8;
+    if (el) scrollTo(0, Math.max(0, el.getBoundingClientRect().top + window.scrollY - offset));
+  });
+  await shot('v2-plans.png', { fullPage: false });
+  await page.click('#termTabs [data-term="1"]');
+  await page.click('#dataTabs [data-data="unl"]'); await page.waitForSelector('[data-plan="unlimited-1-month"]');
+  ok((await page.textContent('#picked')).includes('$54.00') && (await page.textContent('#picked')).includes('Unlimited'), 'unlimited 1-month tab shows $54.00');
 
   // Plan detail
   await page.click('[data-plan=unlimited-1-month] a.btn.light'); await page.waitForSelector('#details');
@@ -62,7 +73,7 @@ let pass = 0; const ok = (c, m) => { assert.ok(c, m); pass++; console.log('  ✓
   await page.click('#payBtn'); ok(await page.isVisible('#ccNumErr'), 'Luhn check in browser');
   await page.fill('#ccNum', ''); await page.type('#ccNum', '4242424242424242');
   ok((await page.inputValue('#ccNum')) === '4242 4242 4242 4242', 'card number formatted');
-  await noHScroll('checkout'); await page.evaluate(() => scrollTo(0, 0)); await shot('04-checkout.png');
+  await noHScroll('checkout'); await page.evaluate(() => scrollTo(0, 0)); await shot('04-checkout.png'); await shot('v2-checkout.png');
   await page.click('#payBtn'); await page.waitForURL(/\/order\?/); await page.waitForSelector('#awaitingNote');
 
   // Confirmation — paid, waiting for the owner to activate (no SAMPLE QR)
@@ -72,10 +83,10 @@ let pass = 0; const ok = (c, m) => { assert.ok(c, m); pass++; console.log('  ✓
   ok(conf.includes('Received (hidden for your security)') && !conf.includes('246813') && !(await page.content()).includes('246813'), 'PIN not shown after submit');
   const orderNum = await page.textContent('#orderNum');
   const orderUrl = page.url();
-  await noHScroll('confirmation'); await shot('05-awaiting-activation.png');
+  await noHScroll('confirmation'); await shot('05-awaiting-activation.png'); await shot('v2-order.png');
 
   // Apple Pay simulated sheet
-  await page.goto(base + '/checkout?plan=starter-5'); await page.fill('#email', 'sam@example.com'); await page.check('#unlocked'); await page.click('[data-m=apple_pay]');
+  await page.goto(base + '/checkout?plan=1-gb-1-month'); await page.fill('#email', 'sam@example.com'); await page.check('#unlocked'); await page.click('[data-m=apple_pay]');
   await page.click('#payBtn'); await page.waitForSelector('#sheet.show'); ok((await page.textContent('#sheet')).includes('Test mode'), 'Apple Pay simulated sheet');
   await page.click('#sheetOk'); await page.waitForURL(/\/order\?/);
 
@@ -94,7 +105,7 @@ let pass = 0; const ok = (c, m) => { assert.ok(c, m); pass++; console.log('  ✓
   await row.locator('[name=phoneNumber]').fill('4155550100');
   await row.locator('button[type=submit]').click();
   await page.waitForFunction((n) => { const el = [...document.querySelectorAll('.adm-order')].find((e) => e.textContent.includes(n)); return el && el.textContent.includes('Activated'); }, orderNum);
-  await noHScroll('admin'); await shot('06-admin-orders.png');
+  await noHScroll('admin'); await shot('06-admin-orders.png'); await shot('v2-admin.png');
   await page.goto(orderUrl); await page.waitForSelector('#qr');
   await page.waitForFunction(() => document.querySelector('#qr').complete && document.querySelector('#qr').naturalWidth > 0);
   ok((await page.textContent('#statusBadge')).includes('Activated') && (await page.textContent('#smdp')) === 'smdp.example.com' && (await page.textContent('#lpa')) === 'LPA:1$smdp.example.com$ABCDE-FGHI-JKLM', 'customer sees real activation details after admin activates');

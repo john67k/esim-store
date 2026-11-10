@@ -1,0 +1,5 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="icon" href="/favicon.svg"><link rel="stylesheet" href="/styles.css"><title>My orders · {store}</title></head><body><main>
+<form class="card" id="lookup"><h1>Find my order</h1><p class="muted small">Enter the email you used and your order number (it starts with SN-).</p>
+<label for="lEmail">Email</label><input id="lEmail" type="email" autocomplete="email" required><label for="lNum">Order number</label><input id="lNum" placeholder="SN-XXXXXX" autocapitalize="characters" required>
+<div class="err" id="lErr" hidden></div><button class="btn block" style="margin-top:14px">Find order</button></form>
+<div id="order"></div></main><script src="/common.js"></script><script src="/order.js"></script><script src="/orders.js"></script></body></html>

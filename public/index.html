@@ -1,0 +1,16 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="icon" href="/favicon.svg"><link rel="stylesheet" href="/styles.css"><title>{store} · Prepaid eSIM phone plans</title></head><body><main>
+<section class="hero"><h1>Prepaid phone plans, delivered as eSIM</h1><p>Pick a plan, pay, and scan a QR code. No store visit, no plastic SIM, no contract.</p>
+<div class="chips"><span>⚡ Instant delivery</span><span>📱 Keep your number</span><span>🔓 No contract</span></div>
+<p style="margin:14px 0 0"><a class="btn white" href="#plans">See plans</a> <a class="btn white" style="background:rgba(255,255,255,.18);color:#fff" href="/compatibility">Check my phone</a></p></section>
+<section class="card" aria-label="Filter plans"><div class="filters">
+<div class="full"><label for="q">Search</label><input id="q" type="search" placeholder="Search plans, e.g. unlimited or 15GB"></div>
+<div><label for="fNet">Network</label><select id="fNet"><option value="">All networks</option></select></div>
+<div><label for="fPrice">Max price</label><select id="fPrice"><option value="">Any price</option><option value="1500">Up to $15</option><option value="2500">Up to $25</option><option value="4000">Up to $40</option><option value="6000">Up to $60</option></select></div>
+<div><label for="fData">Data</label><select id="fData"><option value="">Any data</option><option value="0-4">Under 5GB</option><option value="5-14">5–14GB</option><option value="15-9999">15GB+</option><option value="unl">Unlimited</option></select></div>
+<div><label for="fSort">Sort</label><select id="fSort"><option value="price">Lowest price</option><option value="data">Most data</option></select></div>
+<div class="full toggles"><label class="pilltog"><input type="checkbox" id="f5g"> 5G only</label><label class="pilltog"><input type="checkbox" id="fUnl"> Unlimited only</label><label class="pilltog"><input type="checkbox" id="fHot"> Hotspot</label></div>
+</div></section>
+<p class="muted small" id="count"></p>
+<div class="grid" id="plans"></div>
+<p class="note warn" id="exampleNote" hidden>Plans marked "Example plan &amp; price" are sample data for this demo store, not real carrier offers or carrier pricing.</p>
+</main><script src="/common.js"></script><script src="/home.js"></script></body></html>

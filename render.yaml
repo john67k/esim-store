@@ -1,0 +1,19 @@
+services:
+  - type: web
+    name: esim-store
+    runtime: node
+    plan: free
+    buildCommand: npm install
+    startCommand: npm start
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_VERSION
+        value: "22"
+      - key: ADMIN_PASSWORD
+        generateValue: true
+      - key: STORE_NAME
+        value: SimNow
+      - key: SUPPLIER
+        value: mock
+      - key: PAYMENT_PROVIDER
+        value: mock

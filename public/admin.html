@@ -1,0 +1,24 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex"><link rel="icon" href="/favicon.svg"><link rel="stylesheet" href="/styles.css"><title>Owner dashboard · {store}</title></head><body><main>
+<form class="card" id="login" hidden><h1>Owner login</h1><label for="pw">Password</label><input id="pw" type="password" autocomplete="current-password"><div class="err" id="loginErr" hidden></div><button class="btn block" style="margin-top:12px">Log in</button>
+<p class="small muted">The password is the ADMIN_PASSWORD setting (on Render: your service › Environment).</p></form>
+<div id="dash" hidden>
+<div class="summary"><h1>Dashboard</h1><button class="btn sm light" id="logout">Log out</button></div>
+<div class="tabs"><button type="button" class="on" data-tab="orders">Orders</button><button type="button" data-tab="plans">Plans &amp; prices</button></div>
+<section data-tabpane="orders"><div class="card"><div class="stats"><div><b id="sCount">0</b><span class="small muted">orders</span></div><div><b id="sRev">$0</b><span class="small muted">sales</span></div><div><b id="sProfit">$0</b><span class="small muted">profit</span></div></div></div>
+<div class="card" id="orderList"></div></section>
+<section data-tabpane="plans" hidden>
+<div class="card"><div class="summary"><h2>Plan catalog</h2><button class="btn sm" id="addPlan" type="button">+ Add plan</button></div><div id="planList"></div></div>
+<form class="card" id="planForm" hidden><h2 id="pfTitle">Add plan</h2>
+<label for="pName">Plan name</label><input id="pName" placeholder="Unlimited 5G">
+<label for="pNet">Runs on network</label><input id="pNet" list="netList" placeholder="T-Mobile network"><datalist id="netList"><option>Boost Mobile</option><option>Airvoice Wireless</option><option>T-Mobile network</option><option>AT&amp;T network</option><option>Verizon network</option></datalist>
+<div class="row"><div><label for="pCost">Your cost ($)</label><input id="pCost" inputmode="decimal"></div><div><label for="pMarkup">Markup %</label><input id="pMarkup" inputmode="decimal" placeholder="25"></div><div><label for="pPrice">Price ($)</label><input id="pPrice" inputmode="decimal"></div></div>
+<p class="small muted" id="pMargin">Type a markup % to fill in the price, or type the price yourself.</p>
+<div class="row"><div><label for="pData">Data (GB)</label><input id="pData" inputmode="decimal"></div><div><label for="pHot">Hotspot (GB)</label><input id="pHot" inputmode="decimal"></div><div><label for="pDays">Days</label><input id="pDays" inputmode="numeric" value="30"></div></div>
+<div class="row"><div><label for="pTalk">Talk</label><input id="pTalk" value="Unlimited"></div><div><label for="pText">Text</label><input id="pText" value="Unlimited"></div></div>
+<label for="pSku">Supplier SKU (from your wholesaler)</label><input id="pSku">
+<label for="pNotes">Notes shown to customers (optional)</label><input id="pNotes" maxlength="300">
+<div class="toggles" style="margin-top:12px"><label class="pilltog"><input type="checkbox" id="pUnl"> Unlimited</label><label class="pilltog"><input type="checkbox" id="p5g"> 5G</label><label class="pilltog"><input type="checkbox" id="pActive" checked> For sale</label><label class="pilltog"><input type="checkbox" id="pExample"> Example data</label></div>
+<div class="err" id="pErr" hidden></div>
+<div class="row" style="margin-top:14px"><button type="button" class="btn light" id="pCancel">Cancel</button><button class="btn" id="pSave">Save plan</button></div>
+<button type="button" class="btn danger block" id="pDelete" style="margin-top:10px" hidden>Remove plan</button></form></section>
+</div></main><script src="/common.js"></script><script src="/admin.js"></script></body></html>
